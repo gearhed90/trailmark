@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0b0d12" />
+<title>Trailmark</title>
+<style>
+  :root { --bg:#0b0d12; --line:#2a3140; --text:#f4efe6; --muted:#9aa3b2; --accent:#e8a15a; --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  header { padding:calc(14px + var(--safe-t)) 18px 8px; display:flex; align-items:baseline; justify-content:space-between; }
+  header h1 { font-size:22px; margin:0; letter-spacing:.08em; }
+  header h1 span { color:var(--accent); }
+  header p { margin:0; color:var(--muted); font-size:12px; letter-spacing:.14em; text-transform:uppercase; }
+  main { padding:8px 16px calc(28px + var(--safe-b)); max-width:520px; margin:0 auto; }
+  .stage { background:#10141c; border:1px solid var(--line); border-radius:28px; padding:16px 16px 12px; display:flex; flex-direction:column; align-items:center; }
+  .phone { width:min(250px,68vw); aspect-ratio:1179/2556; border-radius:28px; overflow:hidden; position:relative; box-shadow:0 18px 50px rgba(0,0,0,.45); background:#000; }
+  .phone canvas { width:100%; height:100%; display:block; }
+  .clock { position:absolute; left:0; right:0; top:16%; text-align:center; color:#fff; pointer-events:none; text-shadow:0 2px 16px rgba(0,0,0,.55); }
+  .clock .date { font-size:13px; font-weight:560; }
+  .clock .time { font-size:54px; font-weight:560; letter-spacing:-1px; line-height:1; }
+  .hint { color:var(--muted); font-size:12px; margin:10px 0 0; text-align:center; }
+  .row { display:flex; gap:8px; margin-top:14px; }
+  button,select,input[type=text] { font:inherit; color:var(--text); background:#141820; border:1px solid var(--line); border-radius:14px; padding:12px 14px; }
+  button { cursor:pointer; }
+  button.primary { background:linear-gradient(180deg,#f0b56e,#d4893d); color:#1a1208; border:0; font-weight:700; }
+  button.ghost { background:transparent; }
+  button.fav.on { color:var(--accent); border-color:#6a4a28; }
+  .row button { flex:1; }
+  label { display:block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:16px 0 6px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  select,input[type=text] { width:100%; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .swatches { display:flex; gap:8px; flex-wrap:wrap; }
+  .swatch { width:28px; height:28px; border-radius:50%; border:2px solid transparent; padding:0; }
+  .swatch.on { border-color:#fff; }
+  .quote-box { margin-top:14px; background:#141820; border:1px solid var(--line); border-radius:16px; padding:14px; }
+  .quote-box q { font-size:16px; line-height:1.35; }
+  .quote-box .by { color:var(--muted); font-size:12px; margin-top:6px; }
+  .toast { position:fixed; left:50%; bottom:calc(18px + var(--safe-b)); transform:translateX(-50%); background:#1d2430; border:1px solid var(--line); padding:10px 14px; border-radius:999px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  .fine { color:var(--muted); font-size:12px; line-height:1.45; margin-top:14px; }
+</style>
+</head>
+<body>
+<header><h1>Trail<span>mark</span></h1><p>Lock screen</p></header>
+<main>
+  <div class="stage">
+    <div class="phone">
+      <canvas id="preview" width="1179" height="2556"></canvas>
+      <div class="clock"><div class="date" id="dateLabel"></div><div class="time" id="timeLabel">9:41</div></div>
+    </div>
+    <p class="hint" id="sceneHint">Loading scenes…</p>
+  </div>
+  <div class="quote-box"><q id="quoteText"></q><div class="by" id="quoteBy"></div></div>
+  <div class="row"><button id="shuffle">New pair</button><button id="daily">Today</button><button id="fav" class="fav">Save</button></div>
+  <div class="row"><button id="save" class="primary">Save wallpaper</button></div>
+  <label>Scene set</label>
+  <div class="grid"><select id="theme"></select><select id="category"></select></div>
+  <label>Your line</label>
+  <input id="custom" type="text" placeholder="Type your own, then tap Apply" maxlength="140" />
+  <div class="row"><button id="applyCustom">Apply</button><button id="clearCustom" class="ghost">Clear</button></div>
+  <label>Type</label>
+  <div class="grid3">
+    <select id="font"><option value="serif">Serif</option><option value="sans">Sans</option><option value="mono">Mono</option></select>
+    <select id="align"><option value="center">Center</option><option value="left">Left</option></select>
+    <select id="band"><option value="low">Low</option><option value="lower">Lower</option><option value="mid">Mid</option></select>
+  </div>
+  <label>Size <span id="sizeVal">64</span></label>
+  <input id="size" type="range" min="42" max="92" value="64" />
+  <label>Ink</label>
+  <div class="swatches" id="swatches"></div>
+  <p class="fine">Save wallpaper, then in Photos tap Share, Use as Wallpaper, Lock Screen. The quote sits under the clock. Open this link again tomorrow for a new pair. The lock screen itself stays put until you save a new picture. Add to Home Screen if you want it one tap away.</p>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const SCENES = [
+  {id:"ridge", theme:"military", name:"Ridge watch", file:"img/ridge.b64"},
+  {id:"flightline", theme:"military", name:"Flight line", file:"img/flightline.b64"},
+  {id:"chapel", theme:"crusader", name:"Chapel door", file:"img/chapel.b64"},
+  {id:"fortress", theme:"crusader", name:"Sea fortress", file:"img/fortress.b64"},
+  {id:"marble", theme:"marble", name:"Broken marble", file:"img/marble.b64"},
+  {id:"helm", theme:"marble", name:"Helm and sea", file:"img/helm.b64"}
+];
+const COLORS = ["#f7f1e6","#f2d3a2","#e8a15a","#f4f7fb","#d7e4f5"];
+const QUOTES = [
+  ["military","Hold the ridge. The valley can wait.","Trailmark"],
+  ["military","Quiet hands. Clear orders. Move.","Trailmark"],
+  ["military","The watch is the work.","Trailmark"],
+  ["military","Stand where you were put until you are relieved.","Trailmark"],
+  ["military","Pack light. Finish the job. Come back.","Trailmark"],
+  ["crusader","Keep the vow when the road gets long.","Trailmark"],
+  ["crusader","Stone outlasts the weather. So can you.","Trailmark"],
+  ["crusader","A door is only a door if you walk through it.","Trailmark"],
+  ["crusader","Faith is a direction, not a feeling.","Trailmark"],
+  ["marble","The crack is still standing. So are you.","Trailmark"],
+  ["marble","Leave something that outlasts the week.","Trailmark"],
+  ["marble","Form is repetition that did not quit.","Trailmark"],
+  ["grit","Start before you feel ready.","Trailmark"],
+  ["grit","The hard part is the part. Do that.","Trailmark"],
+  ["grit","One clean hour beats a day of almost.","Trailmark"],
+  ["build","Make the ugly version. It teaches faster.","Trailmark"],
+  ["build","Parts on the bench beat plans in your head.","Trailmark"],
+  ["focus","Name the next step. Only the next step.","Trailmark"],
+  ["focus","Put the tool in your hand before you negotiate.","Trailmark"],
+  ["classic","What stands in the way becomes the way.","Marcus Aurelius"],
+  ["classic","No man is free who is not master of himself.","Epictetus"],
+  ["classic","We suffer more often in imagination than in reality.","Seneca"]
+];
+const $ = id => document.getElementById(id);
+const canvas = $("preview");
+const ctx = canvas.getContext("2d");
+const photos = {};
+const state = { theme:"all", category:"all", font:"serif", align:"center", band:"low", size:64, color:"#f7f1e6", qi:0, si:0, custom:"", favorites: JSON.parse(localStorage.getItem("trailmark-favs")||"[]") };
+function hash(str){ let h=2166136261; for (let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
+function dayKey(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function scenePool(){ return state.theme==="all" ? SCENES : SCENES.filter(s=>s.theme===state.theme); }
+function quotePool(){ if(state.category==="all") return QUOTES; return QUOTES.filter(q=>q[0]===state.category); }
+function currentQuote(){ if(state.custom) return ["custom", state.custom, "You"]; const list=quotePool(); return list[state.qi%list.length]; }
+function currentScene(){ const list=scenePool(); return list[state.si%list.length]; }
+function wrap(text, maxWidth){
+  const words=text.split(" "); const lines=[]; let line="";
+  for(const w of words){ const test=line?line+" "+w:w; if(ctx.measureText(test).width>maxWidth && line){ lines.push(line); line=w; } else line=test; }
+  if(line) lines.push(line); return lines;
+}
+function draw(){
+  const scene=currentScene(); const q=currentQuote(); const img=photos[scene.id];
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(img && img.complete && img.naturalWidth){
+    const scale=Math.max(canvas.width/img.width, canvas.height/img.height);
+    const dw=img.width*scale, dh=img.height*scale;
+    ctx.drawImage(img,(canvas.width-dw)/2,(canvas.height-dh)/2,dw,dh);
+  } else { ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height); }
+  const g=ctx.createLinearGradient(0,canvas.height*0.55,0,canvas.height);
+  g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(0.45,"rgba(0,0,0,0.35)"); g.addColorStop(1,"rgba(0,0,0,0.72)");
+  ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  const fontFamily=state.font==="serif"?"Georgia, 'Times New Roman', serif": :state.font==="mono"?"ui-monospace, Menlo, monospace":"-apple-system, BlinkMacSystemFont, sans-serif";
+  ctx.fillStyle=state.color; ctx.font="560 "+state.size+"px "+fontFamily; ctx.textAlign=state.align; ctx.textBaseline="top";
+  const margin=110, lines=wrap(q[1], canvas.width-margin*2), lh=state.size*1.28;
+  const bandY=state.band==="mid"?1280:state.band==="lower"?1680:1860;
+  const x=state.align==="center"?canvas.width/2:margin;
+  ctx.shadowColor="rgba(0,0,0,0.7)"; ctx.shadowBlur=16;
+  lines.forEach((line,i)=>ctx.fillText(line,x,bandY+i*lh));
+  ctx.shadowBlur=0; ctx.globalAlpha=0.8; ctx.font="500 32px "+fontFamily;
+  if(q[2]!=="Trailmark" && q[2]!=="You") ctx.fillText(q[2], x, bandY+lines.length*lh+28);
+  ctx.globalAlpha=1;
+  $("quoteText").textContent=q[1];
+  $("quoteBy").textContent=q[2]==="Trailmark"?q[0]:q[2];
+  $("sceneHint").textContent=scene.name+" · "+scene.theme;
+  $("fav").classList.toggle("on", state.favorites.some(f=>f[1]===q[1]));
+}
+async function loadPhotos(){
+  await Promise.all(SCENES.map(async s=>{
+    const text=await fetch(s.file).then(r=>r.text());
+    await new Promise(res=>{ const img=new Image(); img.onload=()=>{ photos[s.id]=img; res(); }; img.onerror=()=>res(); img.src="data:image/jpeg;base64,"+text.trim(); });
+  }));
+}
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2200); }
+function tick(){ const d=new Date(); $("timeLabel").textContent=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}); $("dateLabel").textContent=d.toLocaleDateString([],{weekday:"long",month:"long",day:"numeric"}); }
+async function saveWallpaper(){
+  const blob=await new Promise(res=>canvas.toBlob(res,"image/png"));
+  const file=new File([blob],"trailmark-lockscreen.png",{type:"image/png"});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try { await navigator.share({files:[file], title:"Trailmark wallpaper"}); toast("Shared. Save to Photos, then set Lock Screen."); return; }
+    catch(e){ if(e && e.name==="AbortError") return; }
+  }
+  const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="trailmark-lockscreen.png"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000); toast("Wallpaper saved. Set it from Photos.");
+}
+function pickDaily(){ state.custom=""; $("custom").value=""; state.qi=hash(dayKey()+state.category)%quotePool().length; state.si=hash(dayKey()+state.theme+"scene")%scenePool().length; draw(); }
+function init(){
+  const themes=[["all","All scenes"],["military","Military"],["crusader","Crusader"],["marble","Marble"]];
+  themes.forEach(([id,label])=>{ const o=document.createElement("option"); o.value=id; o.textContent=label; $("theme").appendChild(o); });
+  ["all","military","crusader","marble","grit","build","focus","classic"].forEach(id=>{ const o=document.createElement("option"); o.value=id; o.textContent=id==="all"?"All lines":id[0].toUpperCase()+id.slice(1); $("category").appendChild(o); });
+  COLORS.forEach(c=>{ const b=document.createElement("button"); b.className="swatch"+(c===state.color?" on":""); b.style.background=c; b.onclick=()=>{ state.color=c; [...$("swatches").children].forEach(el=>el.classList.remove("on")); b.classList.add("on"); draw(); }; $("swatches").appendChild(b); });
+  $("theme").onchange=e=>{ state.theme=e.target.value; state.si=0; draw(); };
+  $("category").onchange=e=>{ state.category=e.target.value; state.qi=0; state.custom=""; draw(); };
+  $("font").onchange=e=>{ state.font=e.target.value; draw(); };
+  $("align").onchange=e=>{ state.align=e.target.value; draw(); };
+  $("band").onchange=e=>{ state.band=e.target.value; draw(); };
+  $("size").oninput=e=>{ state.size=+e.target.value; $("sizeVal").textContent=state.size; draw(); };
+  $("shuffle").onclick=()=>{ state.custom=""; $("custom").value=""; state.qi=(state.qi+1+hash(String(Date.now()))%5)%quotePool().length; state.si=(state.si+1)%scenePool().length; draw(); };
+  $("daily").onclick=pickDaily;
+  $("applyCustom").onclick=()=>{ state.custom=$("custom").value.trim(); if(state.custom) draw(); };
+  $("clearCustom").onclick=()=>{ state.custom=""; $("custom").value=""; draw(); };
+  $("fav").onclick=()=>{ const q=currentQuote(); const i=state.favorites.findIndex(f=>f[1]===q[1]); if(i>=0) state.favorites.splice(i,1); else state.favorites.unshift(q); localStorage.setItem("trailmark-favs", JSON.stringify(state.favorites)); draw(); toast(i>=0?"Removed":"Saved on this phone"); };
+  $("save").onclick=saveWallpaper;
+  tick(); setInterval(tick,10000); pickDaily();
+}
+loadPhotos().then(init);
+</script>
+</body>
+</html>
