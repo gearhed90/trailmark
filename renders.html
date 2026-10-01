@@ -24,15 +24,17 @@ label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase
 <div class="row"><button id="shuffle">New pair</button><button id="daily">Today</button><button id="save" class="primary">Save wallpaper</button></div>
 <label>Scene set</label><div class="grid"><select id="theme"></select><select id="category"></select></div>
 <label>Your line</label><input id="custom" type="text" maxlength="140" placeholder="Type your own, then Apply"/><div class="row"><button id="applyCustom">Apply</button><button id="refresh" class="ghost">Refresh week</button></div>
-<p class="fine">Renders and CGI only, pulled from Wikimedia each Sunday, about 20 kept on this phone until next Sunday. Save wallpaper, then Photos, Share, Use as Wallpaper, Lock Screen.</p>
+<p class="fine">Renders and CGI only. About 20 kept on this phone until next Sunday. If a result looks like a scan, hit Refresh week. Save wallpaper, then Photos, Share, Use as Wallpaper, Lock Screen.</p>
 </main>
 <script>
 const QUERIES=[
-["military","3D render soldier armor incategory:\"3D_computer_graphics\""],["military","CGI military concept art digital"],["military","blender render sci-fi soldier"],
-["crusader","3D render knight armor"],["crusader","CGI medieval knight digital art"],["crusader","blender render castle knight"],
-["marble","3D render greek statue"],["marble","CGI marble sculpture digital"],["marble","blender render classical statue"]
+["military","\"3D render\" soldier armor"],["military","blender render armor soldier"],["military","\"digital art\" soldier"],
+["crusader","\"3D render\" knight"],["crusader","blender render medieval knight"],["crusader","\"digital art\" crusader knight"],
+["marble","\"3D render\" greek statue"],["marble","blender render classical statue"],["marble","\"digital art\" greek sculpture"]
 ];
 const QUOTES=[["military","Hold the ridge. The valley can wait."],["military","Quiet hands. Clear orders. Move."],["military","The watch is the work."],["military","Stand where you were put until you are relieved."],["crusader","Keep the vow when the road gets long."],["crusader","Stone outlasts the weather. So can you."],["crusader","A door is only a door if you walk through it."],["marble","The crack is still standing. So are you."],["marble","Leave something that outlasts the week."],["grit","Start before you feel ready."],["grit","The hard part is the part. Do that."],["grit","One clean hour beats a day of almost."],["build","Make the ugly version. It teaches faster."],["focus","Name the next step. Only the next step."],["classic","What stands in the way becomes the way."]];
+const BAD=/cyclopaedia|encyclopedia|scan|diagram|map\b|book\b|plate\b|engraving|photograph|photo\b|portrait of/i;
+const GOOD=/render|blender|cgi|3d|digital|concept|unreal|octane|cinema/i;
 const $=id=>document.getElementById(id);const canvas=$("preview"),ctx=canvas.getContext("2d");const loaded={};
 const state={theme:"all",category:"all",qi:0,si:0,custom:"",pool:[]};
 function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
@@ -56,20 +58,20 @@ function draw(){
 }
 function load(scene){if(!scene||!scene.src||loaded[scene.src])return;const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{loaded[scene.src]=img;draw();};img.src=scene.src;}
 async function search(theme,query){
-  const url="https://commons.wikimedia.org/w/api.php?origin=*&action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch="+encodeURIComponent(query)+"&prop=imageinfo&iiprop=url|mime&iiurlwidth=900";
+  const url="https://commons.wikimedia.org/w/api.php?origin=*&action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch="+encodeURIComponent(query)+"&prop=imageinfo&iiprop=url|mime&iiurlwidth=900";
   const data=await fetch(url).then(r=>r.json());
   const pages=data.query&&data.query.pages?Object.values(data.query.pages):[];
-  return pages.map(p=>{const info=p.imageinfo&&p.imageinfo[0];if(!info||!info.thumburl||(info.mime&&!info.mime.startsWith("image/")))return null;const title=(p.title||"").replace(/^File:/,"");if(/\.svg$/i.test(title))return null;return {theme,name:title.replace(/\.[a-z0-9]+$/i,""),src:info.thumburl};}).filter(Boolean);
+  return pages.map(p=>{const info=p.imageinfo&&p.imageinfo[0];const title=(p.title||"").replace(/^File:/,"");if(!info||!info.thumburl||/\.svg$/i.test(title)||BAD.test(title)||!GOOD.test(title+" "+query))return null;return {theme,name:title.replace(/\.[a-z0-9]+$/i,""),src:info.thumburl};}).filter(Boolean);
 }
 async function refreshPool(force){
-  const key=weekKey();const saved=JSON.parse(localStorage.getItem("trailmark-renders")||"null");
+  const key=weekKey();const saved=JSON.parse(localStorage.getItem("trailmark-renders-v2")||"null");
   if(!force&&saved&&saved.week===key&&saved.pool&&saved.pool.length){state.pool=saved.pool;draw();load(scenes()[state.si%scenes().length]);return;}
   $("sceneHint").textContent="Pulling this week's renders…";
   const batches=await Promise.all(QUERIES.map(([theme,q])=>search(theme,q).catch(()=>[])));
   const seen=new Set();const pool=[];
   batches.flat().forEach(item=>{if(seen.has(item.src))return;seen.add(item.src);pool.push(item);});
   state.pool=pool.slice(0,24);
-  localStorage.setItem("trailmark-renders",JSON.stringify({week:key,pool:state.pool}));
+  localStorage.setItem("trailmark-renders-v2",JSON.stringify({week:key,pool:state.pool}));
   draw();if(state.pool.length)load(scenes()[state.si%scenes().length]);
 }
 function init(){
